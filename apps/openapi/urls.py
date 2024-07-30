@@ -6,5 +6,5 @@ from apps.openapi import views
 # router.register(r'users', views.UserViewSet)
 # router.register(r'groups', views.GroupViewSet)
 urlpatterns = [
-    
+    path('create_link_token', views.CreateLinkToken.as_view()),
 ]
