@@ -58,15 +58,60 @@ from plaid.api import plaid_api
 
 load_dotenv()
 
+def empty_to_none(field):
+    value = os.getenv(field)
+    if value is None or len(value) == 0:
+        return None
+    return value
+
 PLAID_CLIENT_ID = os.getenv('PLAID_CLIENT_ID')
 PLAID_SECRET = os.getenv('PLAID_SECRET')
 PLAID_ENV = os.getenv('PLAID_ENV', 'sandbox')
 PLAID_PRODUCTS = os.getenv('PLAID_PRODUCTS', 'transactions').split(',')
 PLAID_COUNTRY_CODES = os.getenv('PLAID_COUNTRY_CODES', 'US').split(',')
 
+host = plaid.Environment.Sandbox
+
+if PLAID_ENV == 'sandbox':
+    host = plaid.Environment.Sandbox
+
+if PLAID_ENV == 'production':
+    host = plaid.Environment.Production
+
+PLAID_REDIRECT_URI = empty_to_none('PLAID_REDIRECT_URI')
+
+
 products = []
 for product in PLAID_PRODUCTS:
     products.append(Products(product))
+
+configuration = plaid.Configuration(
+    host=host,
+    api_key={
+        'clientId': PLAID_CLIENT_ID,
+        'secret': PLAID_SECRET,
+        'plaidVersion': '2020-09-14'
+    }
+)
+
+api_client = plaid.ApiClient(configuration)
+client = plaid_api.PlaidApi(api_client)
+
+
+# We store the access_token in memory - in production, store it in a secure
+# persistent data store.
+access_token = None
+# The payment_id is only relevant for the UK Payment Initiation product.
+# We store the payment_id in memory - in production, store it in a secure
+# persistent data store.
+payment_id = None
+# The transfer_id is only relevant for Transfer ACH product.
+# We store the transfer_id in memory - in production, store it in a secure
+# persistent data store.
+transfer_id = None
+
+item_id = None
+
 
 class CreateLinkToken(views.APIView):
     def post(self, request, format=None):
@@ -88,9 +133,9 @@ class CreateLinkToken(views.APIView):
                     start_date=date.today()-timedelta(days=30)
                 )
                 request['statements']=statements
-        # create link token
+            # create link token
             response = client.link_token_create(request)
-            return jsonify(response.to_dict())
+            return response.to_dict()
         except plaid.ApiException as e:
             print(e)
             return json.loads(e.body)
